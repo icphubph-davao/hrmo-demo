@@ -20,6 +20,10 @@ persistent actor Filevault {
   // Define a data type for a file's data.
   type File = {
     name : Text;
+    title : Text;              // New field
+    content : Text;            // New field
+    additionalContent : Text;   // New field
+    remarks : Text;            // New field
     chunks : [FileChunk];
     totalSize : Nat;
     fileType : Text;
@@ -49,13 +53,36 @@ persistent actor Filevault {
   };
 
   // Upload a file in chunks.
-  public shared (msg) func uploadFileChunk(name : Text, chunk : Blob, index : Nat, fileType : Text) : async () {
+  public shared (msg) func uploadFileChunk(
+    name : Text,
+    title : Text,              // New parameter
+    content : Text,            // New parameter
+    additionalContent : Text,   // New parameter
+    remarks : Text,            // New parameter
+    chunk : Blob,
+    index : Nat,
+    fileType : Text
+  ) : async () {
     let userFiles = getUserFiles(msg.caller);
     let fileChunk = { chunk = chunk; index = index };
 
     switch (HashMap.get(userFiles, thash, name)) {
       case null {
-        let _ = HashMap.put(userFiles, thash, name, { name = name; chunks = [fileChunk]; totalSize = chunk.size(); fileType = fileType });
+        let _ = HashMap.put(
+          userFiles,
+          thash,
+          name,
+          {
+            name = name;
+            title = title;
+            content = content;
+            additionalContent = additionalContent;
+            remarks = remarks;
+            chunks = [fileChunk];
+            totalSize = chunk.size();
+            fileType = fileType;
+          }
+        );
       };
       case (?existingFile) {
         let updatedChunks = Array.append(existingFile.chunks, [fileChunk]);
@@ -65,6 +92,10 @@ persistent actor Filevault {
           name,
           {
             name = name;
+            title = title;                    // Update with new value
+            content = content;                // Update with new value
+            additionalContent = additionalContent; // Update with new value
+            remarks = remarks;                // Update with new value
             chunks = updatedChunks;
             totalSize = existingFile.totalSize + chunk.size();
             fileType = fileType;
@@ -75,13 +106,33 @@ persistent actor Filevault {
   };
 
   // Return list of files for a user.
-  public shared (msg) func getFiles() : async [{ name : Text; size : Nat; fileType : Text }] {
+  public shared (msg) func getFiles() : async [{
+    name : Text;
+    title : Text;              // New field
+    content : Text;            // New field
+    additionalContent : Text;   // New field
+    remarks : Text;            // New field
+    size : Nat;
+    fileType : Text;
+  }] {
     Iter.toArray(
       Iter.map(
         HashMap.vals(getUserFiles(msg.caller)),
-        func(file : File) : { name : Text; size : Nat; fileType : Text } {
+        func(file : File) : {
+          name : Text;
+          title : Text;
+          content : Text;
+          additionalContent : Text;
+          remarks : Text;
+          size : Nat;
+          fileType : Text;
+        } {
           {
             name = file.name;
+            title = file.title;
+            content = file.content;
+            additionalContent = file.additionalContent;
+            remarks = file.remarks;
             size = file.totalSize;
             fileType = file.fileType;
           };
@@ -116,6 +167,24 @@ persistent actor Filevault {
     switch (HashMap.get(getUserFiles(msg.caller), thash, name)) {
       case null null;
       case (?file) ?file.fileType;
+    };
+  };
+
+  // Get file's metadata (new function to retrieve title, content, etc.).
+  public shared (msg) func getFileMetadata(name : Text) : async ?{
+    title : Text;
+    content : Text;
+    additionalContent : Text;
+    remarks : Text;
+  } {
+    switch (HashMap.get(getUserFiles(msg.caller), thash, name)) {
+      case null null;
+      case (?file) ?{
+        title = file.title;
+        content = file.content;
+        additionalContent = file.additionalContent;
+        remarks = file.remarks;
+      };
     };
   };
 
