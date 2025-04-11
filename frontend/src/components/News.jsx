@@ -129,15 +129,15 @@ const News = () => {
   }, []);
 
   useEffect(() => {
-    if (actor && isAuthenticated) {
-      loadFiles();
+    if (actor) {
+      loadFiles(); // Load files as soon as actor is available, regardless of auth status
     }
     return () => {
       files.forEach((file) => {
         if (file.url) URL.revokeObjectURL(file.url);
       });
     };
-  }, [actor, isAuthenticated]);
+  }, [actor]);
 
   async function login() {
     if (!authClient) {
@@ -251,6 +251,10 @@ const News = () => {
   async function handleFileUpload(file, title, content, additionalContent, remarks, isUpdate = false, oldFileName = null) {
     if (!actor) {
       setErrorMessage('Actor not initialized.');
+      return;
+    }
+    if (!isAuthenticated) {
+      setErrorMessage('You must be authenticated to upload files.');
       return;
     }
     setErrorMessage('');
@@ -444,6 +448,10 @@ const News = () => {
       setErrorMessage('Actor not initialized.');
       return;
     }
+    if (!isAuthenticated) {
+      setErrorMessage('You must be authenticated to delete files.');
+      return;
+    }
     if (window.confirm(`Are you sure you want to delete "${name}"?`)) {
       try {
         setLoading(true);
@@ -466,6 +474,10 @@ const News = () => {
     e.preventDefault();
     if (!actor) {
       setErrorMessage('Application not ready. Please try again.');
+      return;
+    }
+    if (!isAuthenticated) {
+      setErrorMessage('You must be authenticated to submit news.');
       return;
     }
     console.log('Form submitted:', formData);
@@ -507,12 +519,12 @@ const News = () => {
         `}
       </style>
       <section className="container">
-        <div>
+        <div className="d-flex justify-content-end">
           {isAuthenticated ? (
-            <div className="btn-group float-end">
+            <div className="btn-group">
               <button
                 type="button"
-                className="btn btn-primary float-end"
+                className="btn btn-primary"
                 onClick={() => {
                   handleShow();
                 }}
@@ -543,7 +555,7 @@ const News = () => {
           ) : (
             <button
               onClick={login}
-              className="rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 float-end"
+              className="rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
               disabled={loading}
             >
               {loading ? (
@@ -568,6 +580,10 @@ const News = () => {
                 <span className="visually-hidden">Loading...</span>
               </Spinner>
               <p>Loading files...</p>
+            </div>
+          ) : files.length === 0 ? (
+            <div className="text-center">
+              <p>No news available.</p>
             </div>
           ) : (
             <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
@@ -607,36 +623,40 @@ const News = () => {
                               </>
                             )}
                           </button>
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-outline-secondary"
-                            onClick={() => {
-                              handleShowAction('update', file);
-                            }}
-                            disabled={loading}
-                          >
-                            {loading ? (
-                              <Spinner as="span" animation="border" size="sm" />
-                            ) : (
-                              <>
-                                <Pencil /> Edit
-                              </>
-                            )}
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-outline-danger"
-                            onClick={() => handleFileDelete(file.name)}
-                            disabled={loading}
-                          >
-                            {loading ? (
-                              <Spinner as="span" animation="border" size="sm" />
-                            ) : (
-                              <>
-                                <Trash /> Delete
-                              </>
-                            )}
-                          </button>
+                          {isAuthenticated && (
+                            <>
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-secondary"
+                                onClick={() => {
+                                  handleShowAction('update', file);
+                                }}
+                                disabled={loading}
+                              >
+                                {loading ? (
+                                  <Spinner as="span" animation="border" size="sm" />
+                                ) : (
+                                  <>
+                                    <Pencil /> Edit
+                                  </>
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-danger"
+                                onClick={() => handleFileDelete(file.name)}
+                                disabled={loading}
+                              >
+                                {loading ? (
+                                  <Spinner as="span" animation="border" size="sm" />
+                                ) : (
+                                  <>
+                                    <Trash /> Delete
+                                  </>
+                                )}
+                              </button>
+                            </>
+                          )}
                         </div>
                         <small className="text-body-secondary">9 mins</small>
                       </div>
@@ -670,16 +690,18 @@ const News = () => {
                 />
               </div>
             )}
-            <Form.Group className="mb-3" controlId="formImage" hidden={formData.url && !isUpdate}>
-              <Form.Label>Image</Form.Label>
-              <Form.Control
-                type="file"
-                name="image"
-                accept="image/*"
-                onChange={handleFileChange}
-                disabled={loading}
-              />
-            </Form.Group>
+            {isAuthenticated && !formData.url && (
+              <Form.Group className="mb-3" controlId="formImage">
+                <Form.Label>Image</Form.Label>
+                <Form.Control
+                  type="file"
+                  name="image"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  disabled={loading}
+                />
+              </Form.Group>
+            )}
 
             <Form.Group className="mb-3" controlId="formTitle">
               <Form.Label>Title</Form.Label>
@@ -689,8 +711,8 @@ const News = () => {
                 value={formData.title}
                 onChange={handleInputChange}
                 placeholder="Enter title"
-                required={!formData.url || isUpdate}
-                disabled={(formData.url && !isUpdate) || loading}
+                required={isAuthenticated && (!formData.url || isUpdate)}
+                disabled={(!isAuthenticated || (formData.url && !isUpdate)) || loading}
               />
             </Form.Group>
 
@@ -703,8 +725,8 @@ const News = () => {
                 value={formData.content}
                 onChange={handleInputChange}
                 placeholder="Enter content"
-                required={!formData.url || isUpdate}
-                disabled={(formData.url && !isUpdate) || loading}
+                required={isAuthenticated && (!formData.url || isUpdate)}
+                disabled={(!isAuthenticated || (formData.url && !isUpdate)) || loading}
               />
             </Form.Group>
 
@@ -717,7 +739,7 @@ const News = () => {
                 value={formData.additionalContent}
                 onChange={handleInputChange}
                 placeholder="Enter additional content"
-                disabled={(formData.url && !isUpdate) || loading}
+                disabled={(!isAuthenticated || (formData.url && !isUpdate)) || loading}
               />
             </Form.Group>
 
@@ -729,7 +751,7 @@ const News = () => {
                 value={formData.remarks}
                 onChange={handleInputChange}
                 placeholder="Enter remarks"
-                disabled={(formData.url && !isUpdate) || loading}
+                disabled={(!isAuthenticated || (formData.url && !isUpdate)) || loading}
               />
             </Form.Group>
 
@@ -764,7 +786,7 @@ const News = () => {
                   </>
                 )}
               </Button>
-              {isUpdate && (
+              {isAuthenticated && isUpdate && (
                 <Button variant="success" type="submit" disabled={loading}>
                   {loading ? (
                     <Spinner as="span" animation="border" size="sm" />
@@ -775,7 +797,7 @@ const News = () => {
                   )}
                 </Button>
               )}
-              {!isUpdate && !formData.url && (
+              {isAuthenticated && !isUpdate && !formData.url && (
                 <Button variant="success" type="submit" disabled={loading}>
                   {loading ? (
                     <Spinner as="span" animation="border" size="sm" />
